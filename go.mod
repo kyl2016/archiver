@@ -1,6 +1,6 @@
-module github.com/mholt/archiver
+module github.com/kyl2016/archiver
 
-go 1.12
+go 1.13
 
 require (
 	github.com/andybalholm/brotli v0.0.0-20190621154722-5f990b63d2d6

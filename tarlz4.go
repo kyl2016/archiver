@@ -2,10 +2,9 @@ package archiver
 
 import (
 	"fmt"
+	"github.com/pierrec/lz4"
 	"io"
 	"strings"
-
-	"github.com/pierrec/lz4"
 )
 
 // TarLz4 facilitates lz4 compression
@@ -47,9 +46,9 @@ func (tlz4 *TarLz4) Archive(sources []string, destination string) error {
 // Unarchive unpacks the compressed tarball at
 // source to destination. Destination will be
 // treated as a folder name.
-func (tlz4 *TarLz4) Unarchive(source, destination string) error {
+func (tlz4 *TarLz4) Unarchive(source, destination string, output chan string) error {
 	tlz4.wrapReader()
-	return tlz4.Tar.Unarchive(source, destination)
+	return tlz4.Tar.Unarchive(source, destination, output)
 }
 
 // Walk calls walkFn for each visited item in archive.
@@ -120,3 +119,12 @@ var (
 
 // DefaultTarLz4 is a convenient archiver ready to use.
 var DefaultTarLz4 = NewTarLz4()
+
+func (tlz4 *TarLz4) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (tlz4 *TarLz4) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

@@ -2,10 +2,9 @@ package archiver
 
 import (
 	"fmt"
+	"github.com/golang/snappy"
 	"io"
 	"strings"
-
-	"github.com/golang/snappy"
 )
 
 // TarSz facilitates Snappy compression
@@ -41,9 +40,9 @@ func (tsz *TarSz) Archive(sources []string, destination string) error {
 // Unarchive unpacks the compressed tarball at
 // source to destination. Destination will be
 // treated as a folder name.
-func (tsz *TarSz) Unarchive(source, destination string) error {
+func (tsz *TarSz) Unarchive(source, destination string, output chan string) error {
 	tsz.wrapReader()
-	return tsz.Tar.Unarchive(source, destination)
+	return tsz.Tar.Unarchive(source, destination, output)
 }
 
 // Walk calls walkFn for each visited item in archive.
@@ -112,3 +111,12 @@ var (
 
 // DefaultTarSz is a convenient archiver ready to use.
 var DefaultTarSz = NewTarSz()
+
+func (tsz *TarSz) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (tsz *TarSz) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

@@ -5,25 +5,16 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-
-	pgzip "github.com/klauspost/pgzip"
 )
 
 // Gz facilitates gzip compression.
 type Gz struct {
 	CompressionLevel int
-	SingleThreaded   bool
 }
 
 // Compress reads in, compresses it, and writes it to out.
 func (gz *Gz) Compress(in io.Reader, out io.Writer) error {
-	var w io.WriteCloser
-	var err error
-	if gz.SingleThreaded {
-		w, err = gzip.NewWriterLevel(out, gz.CompressionLevel)
-	} else {
-		w, err = pgzip.NewWriterLevel(out, gz.CompressionLevel)
-	}
+	w, err := gzip.NewWriterLevel(out, gz.CompressionLevel)
 	if err != nil {
 		return err
 	}
@@ -34,13 +25,7 @@ func (gz *Gz) Compress(in io.Reader, out io.Writer) error {
 
 // Decompress reads in, decompresses it, and writes it to out.
 func (gz *Gz) Decompress(in io.Reader, out io.Writer) error {
-	var r io.ReadCloser
-	var err error
-	if gz.SingleThreaded {
-		r, err = gzip.NewReader(in)
-	} else {
-		r, err = pgzip.NewReader(in)
-	}
+	r, err := gzip.NewReader(in)
 	if err != nil {
 		return err
 	}
@@ -74,3 +59,12 @@ var (
 
 // DefaultGz is a default instance that is conveniently ready to use.
 var DefaultGz = NewGz()
+
+func (gz *Gz) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (gz *Gz) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}
