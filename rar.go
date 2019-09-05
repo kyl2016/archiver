@@ -3,6 +3,7 @@ package archiver
 import (
 	"bytes"
 	"fmt"
+	"github.com/nwaples/rardecode"
 	"io"
 	"log"
 	"os"
@@ -10,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/nwaples/rardecode"
 )
 
 // Rar provides facilities for reading RAR archives.
@@ -63,7 +62,7 @@ func (*Rar) CheckExt(filename string) error {
 // Unarchive unpacks the .rar file at source to destination.
 // Destination will be treated as a folder name. It supports
 // multi-volume archives.
-func (r *Rar) Unarchive(source, destination string) error {
+func (r *Rar) Unarchive(source, destination string, output chan string) error {
 	if !fileExists(destination) && r.MkdirAll {
 		err := mkdir(destination, 0755)
 		if err != nil {
@@ -407,3 +406,16 @@ var (
 
 // DefaultRar is a default instance that is conveniently ready to use.
 var DefaultRar = NewRar()
+
+func (r *Rar) GetFileCount(source string) (int, error) {
+	return -1, nil
+}
+
+func (r *Rar) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (r *Rar) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

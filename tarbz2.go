@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
 	"github.com/dsnet/compress/bzip2"
 )
 
@@ -43,9 +42,9 @@ func (tbz2 *TarBz2) Archive(sources []string, destination string) error {
 // Unarchive unpacks the compressed tarball at
 // source to destination. Destination will be
 // treated as a folder name.
-func (tbz2 *TarBz2) Unarchive(source, destination string) error {
+func (tbz2 *TarBz2) Unarchive(source, destination string, output chan string) error {
 	tbz2.wrapReader()
-	return tbz2.Tar.Unarchive(source, destination)
+	return tbz2.Tar.Unarchive(source, destination, output)
 }
 
 // Walk calls walkFn for each visited item in archive.
@@ -124,3 +123,11 @@ var (
 
 // DefaultTarBz2 is a convenient archiver ready to use.
 var DefaultTarBz2 = NewTarBz2()
+
+func (tbz2 *TarBz2)UnarchiveFromBuffer(reader io.Reader, size int64,destination string, output chan string) error {
+	return fmt.Errorf("Not implement")
+}
+
+func (tbz2 *TarBz2) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

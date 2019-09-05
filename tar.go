@@ -113,7 +113,7 @@ func (t *Tar) Archive(sources []string, destination string) error {
 
 // Unarchive unpacks the .tar file at source to destination.
 // Destination will be treated as a folder name.
-func (t *Tar) Unarchive(source, destination string) error {
+func (t *Tar) Unarchive(source, destination string, output chan string) error {
 	if !fileExists(destination) && t.MkdirAll {
 		err := mkdir(destination, 0755)
 		if err != nil {
@@ -232,7 +232,7 @@ func (t *Tar) untarFile(f File, to string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return mkdir(to, f.Mode())
-	case tar.TypeReg, tar.TypeRegA, tar.TypeChar, tar.TypeBlock, tar.TypeFifo, tar.TypeGNUSparse:
+	case tar.TypeReg, tar.TypeRegA, tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
 		return writeNewFile(to, f, f.Mode())
 	case tar.TypeSymlink:
 		return writeNewSymbolicLink(to, hdr.Linkname)
@@ -614,3 +614,16 @@ var (
 
 // DefaultTar is a default instance that is conveniently ready to use.
 var DefaultTar = NewTar()
+
+func (t *Tar) GetFileCount(source string) (int, error) {
+	return -1, nil
+}
+
+func (t *Tar) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (t *Tar) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

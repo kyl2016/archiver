@@ -2,11 +2,10 @@ package archiver
 
 import (
 	"fmt"
-	"io"
-	"strings"
-
 	"github.com/ulikunitz/xz"
 	fastxz "github.com/xi2/xz"
+	"io"
+	"strings"
 )
 
 // TarXz facilitates xz compression
@@ -42,9 +41,9 @@ func (txz *TarXz) Archive(sources []string, destination string) error {
 // Unarchive unpacks the compressed tarball at
 // source to destination. Destination will be
 // treated as a folder name.
-func (txz *TarXz) Unarchive(source, destination string) error {
+func (txz *TarXz) Unarchive(source, destination string, output chan string) error {
 	txz.wrapReader()
-	return txz.Tar.Unarchive(source, destination)
+	return txz.Tar.Unarchive(source, destination, output)
 }
 
 // Walk calls walkFn for each visited item in archive.
@@ -117,3 +116,12 @@ var (
 
 // DefaultTarXz is a convenient archiver ready to use.
 var DefaultTarXz = NewTarXz()
+
+func (txz *TarXz) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (txz *TarXz) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

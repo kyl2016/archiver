@@ -2,10 +2,9 @@ package archiver
 
 import (
 	"fmt"
+	"github.com/dsnet/compress/bzip2"
 	"io"
 	"path/filepath"
-
-	"github.com/dsnet/compress/bzip2"
 )
 
 // Bz2 facilitates bzip2 compression.
@@ -62,3 +61,12 @@ var (
 
 // DefaultBz2 is a default instance that is conveniently ready to use.
 var DefaultBz2 = NewBz2()
+
+func (bz *Bz2) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (bz *Bz2) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

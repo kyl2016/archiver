@@ -2,11 +2,10 @@ package archiver
 
 import (
 	"fmt"
-	"io"
-	"path/filepath"
-
 	"github.com/ulikunitz/xz"
 	fastxz "github.com/xi2/xz"
+	"io"
+	"path/filepath"
 )
 
 // Xz facilitates XZ compression.
@@ -56,3 +55,11 @@ var (
 
 // DefaultXz is a default instance that is conveniently ready to use.
 var DefaultXz = NewXz()
+
+func (x *Xz) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+func (x *Xz) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

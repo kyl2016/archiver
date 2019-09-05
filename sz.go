@@ -2,10 +2,9 @@ package archiver
 
 import (
 	"fmt"
+	"github.com/golang/snappy"
 	"io"
 	"path/filepath"
-
-	"github.com/golang/snappy"
 )
 
 // Snappy facilitates Snappy compression.
@@ -49,3 +48,12 @@ var (
 
 // DefaultSnappy is a default instance that is conveniently ready to use.
 var DefaultSnappy = NewSnappy()
+
+func (s *Snappy) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (s *Snappy) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

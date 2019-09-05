@@ -2,10 +2,9 @@ package archiver
 
 import (
 	"fmt"
+	"github.com/pierrec/lz4"
 	"io"
 	"path/filepath"
-
-	"github.com/pierrec/lz4"
 )
 
 // Lz4 facilitates LZ4 compression.
@@ -54,3 +53,12 @@ var (
 
 // DefaultLz4 is a default instance that is conveniently ready to use.
 var DefaultLz4 = NewLz4()
+
+func (lz *Lz4) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	return fmt.Errorf("Not implement")
+}
+
+
+func (lz *Lz4) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	panic("GetFileCountByReader not implement")
+}

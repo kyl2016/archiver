@@ -72,10 +72,18 @@ type ExtensionChecker interface {
 	CheckExt(name string) error
 }
 
+type FilePayload struct {
+	FileName string
+	Reader   io.ReadCloser
+}
+
 // Unarchiver is a type that can extract archive files
 // into a folder.
 type Unarchiver interface {
-	Unarchive(source, destination string) error
+	Unarchive(source, destination string, output chan string) error
+	UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error
+	GetFileCount(fileName string) (int, error)
+	GetFileCountByReader(reader io.Reader, size int64) (int, error)
 }
 
 // Writer can write discrete byte streams of files to
@@ -206,7 +214,7 @@ func Unarchive(source, destination string) error {
 	if !ok {
 		return fmt.Errorf("format specified by source filename is not an archive format: %s (%T)", source, uaIface)
 	}
-	return u.Unarchive(source, destination)
+	return u.Unarchive(source, destination, nil)
 }
 
 // Walk calls walkFn for each file within the given archive file.
@@ -443,8 +451,6 @@ func ByExtension(filename string) (interface{}, error) {
 		return NewRar(), nil
 	case *Tar:
 		return NewTar(), nil
-	case *TarBrotli:
-		return NewTarBrotli(), nil
 	case *TarBz2:
 		return NewTarBz2(), nil
 	case *TarGz:
@@ -455,8 +461,6 @@ func ByExtension(filename string) (interface{}, error) {
 		return NewTarSz(), nil
 	case *TarXz:
 		return NewTarXz(), nil
-	case *TarZstd:
-		return NewTarZstd(), nil
 	case *Zip:
 		return NewZip(), nil
 	case *Gz:
@@ -464,13 +468,11 @@ func ByExtension(filename string) (interface{}, error) {
 	case *Bz2:
 		return NewBz2(), nil
 	case *Lz4:
-		return NewLz4(), nil
+		return NewBz2(), nil
 	case *Snappy:
 		return NewSnappy(), nil
 	case *Xz:
 		return NewXz(), nil
-	case *Zstd:
-		return NewZstd(), nil
 	}
 	return nil, fmt.Errorf("format unrecognized by filename: %s", filename)
 }
@@ -506,23 +508,19 @@ func ByHeader(input io.ReadSeeker) (Unarchiver, error) {
 // that can check extensions. Only to be used for
 // checking extensions - not any archival operations.
 var extCheckers = []ExtensionChecker{
-	&TarBrotli{},
 	&TarBz2{},
 	&TarGz{},
 	&TarLz4{},
 	&TarSz{},
 	&TarXz{},
-	&TarZstd{},
 	&Rar{},
 	&Tar{},
 	&Zip{},
-	&Brotli{},
 	&Gz{},
 	&Bz2{},
 	&Lz4{},
 	&Snappy{},
 	&Xz{},
-	&Zstd{},
 }
 
 var matchers = []Matcher{

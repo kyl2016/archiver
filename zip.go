@@ -6,11 +6,13 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	//"unicode/utf8"
 )
 
 // Zip provides facilities for operating ZIP archives.
@@ -54,6 +56,10 @@ type Zip struct {
 	// or writing a single file will be logged and
 	// the operation will continue on remaining files.
 	ContinueOnError bool
+
+	// If zip.FileHeader.NonUTF8 was true, this can be
+	// used to decode filename to utf8
+	FilenameEncoding string
 
 	zw   *zip.Writer
 	zr   *zip.Reader
@@ -121,7 +127,122 @@ func (z *Zip) Archive(sources []string, destination string) error {
 
 // Unarchive unpacks the .zip file at source to destination.
 // Destination will be treated as a folder name.
-func (z *Zip) Unarchive(source, destination string) error {
+//func (z *Zip) Unarchive(source, destination string, output chan string) error {
+//	if !fileExists(destination) && z.MkdirAll {
+//		err := mkdir(destination, 0755)
+//		if err != nil {
+//			return fmt.Errorf("preparing destination: %v", err)
+//		}
+//	}
+//
+//	file, err := os.Open(source)
+//	//file, err := os.OpenFile(source, syscall.O_DIRECT|os.O_RDONLY, 0)
+//	if err != nil {
+//		return fmt.Errorf("opening source file: %v", err)
+//	}
+//	defer file.Close()
+//
+//	fileInfo, err := file.Stat()
+//	if err != nil {
+//		return fmt.Errorf("statting source file: %v", err)
+//	}
+//
+//	err = z.Open(file, fileInfo.Size())
+//	if err != nil {
+//		return fmt.Errorf("opening zip archive for reading: %v", err)
+//	}
+//	defer z.Close()
+//
+//	// if the files in the archive do not all share a common
+//	// root, then make sure we extract to a single subfolder
+//	// rather than potentially littering the destination...
+//	if z.ImplicitTopLevelFolder {
+//		files := make([]string, len(z.zr.File))
+//		for i := range z.zr.File {
+//			files[i] = z.zr.File[i].Name
+//		}
+//		if multipleTopLevels(files) {
+//			destination = filepath.Join(destination, folderNameFromFileName(source))
+//		}
+//	}
+//
+//	for {
+//		file, isDir, err := z.extractNext(destination)
+//		if err == io.EOF {
+//			break
+//		}
+//		if err != nil {
+//			if z.ContinueOnError {
+//				log.Printf("[ERROR] Reading file in zip archive: %v", err)
+//				continue
+//			}
+//			return fmt.Errorf("reading file in zip archive: %v", err)
+//		}
+//
+//		//println(file)
+//
+//		if !isDir{
+//		output <- destination + "/" + file
+//		}
+//	}
+//
+//	return nil
+//}
+
+func (z *Zip) UnarchiveFromReaderToReader(reader io.Reader, size int64, output chan FilePayload) error {
+	err := z.Open(reader, size)
+	if err != nil {
+		return fmt.Errorf("opening zip archive for reading: %v", err)
+	}
+	defer z.Close()
+
+	for {
+		file, isDir, reader, err := z.extractNext2()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if z.ContinueOnError {
+				log.Printf("[ERROR] Reading file in zip archive: %v", err)
+				continue
+			}
+			return fmt.Errorf("reading file in zip archive: %v", err)
+		}
+
+		if !isDir {
+			output <- FilePayload{file, reader}
+		}
+	}
+
+	return nil
+}
+
+func (z *Zip) extractNext2() (string, bool, io.ReadCloser, error) {
+	f, err := z.Read()
+	if err != nil {
+		return "", false, nil, err // don't wrap error; calling loop must break on io.EOF
+	}
+	//defer f.Close() close after copied data
+	return z.extractFile2(f)
+}
+
+func (z *Zip) extractFile2(f File) (filename string, isDir bool, reader io.ReadCloser, err error) {
+	header, ok := f.Header.(zip.FileHeader)
+	if !ok {
+		return "", false, nil, fmt.Errorf("expected header to be zip.FileHeader but was %T", f.Header)
+	}
+
+	filename = z.DecodeFileName(header)
+
+	// if a directory, no content; simply make the directory and return
+	if f.IsDir() {
+		return "", true, nil, nil
+	}
+
+	return filename, false, f, nil
+}
+
+func (z *Zip) Unarchive(source, destination string, output chan string) error {
 	if !fileExists(destination) && z.MkdirAll {
 		err := mkdir(destination, 0755)
 		if err != nil {
@@ -129,18 +250,26 @@ func (z *Zip) Unarchive(source, destination string) error {
 		}
 	}
 
-	file, err := os.Open(source)
+	buffer, err := ioutil.ReadFile(source)
+	if err != nil {
+		return err
+	}
+
+	file := bytes.NewReader(buffer)
+
+	//file, err := os.Open(source)
+	//file, err := os.OpenFile(source, syscall.O_DIRECT|os.O_RDONLY, 0)
 	if err != nil {
 		return fmt.Errorf("opening source file: %v", err)
 	}
-	defer file.Close()
+	//defer file.Close()
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("statting source file: %v", err)
-	}
+	//fileInfo, err := file.Stat()
+	//if err != nil {
+	//	return fmt.Errorf("statting source file: %v", err)
+	//}
 
-	err = z.Open(file, fileInfo.Size())
+	err = z.Open(file, int64(len(buffer)))
 	if err != nil {
 		return fmt.Errorf("opening zip archive for reading: %v", err)
 	}
@@ -160,7 +289,7 @@ func (z *Zip) Unarchive(source, destination string) error {
 	}
 
 	for {
-		err := z.extractNext(destination)
+		file, isDir, err := z.extractNext(destination)
 		if err == io.EOF {
 			break
 		}
@@ -171,36 +300,43 @@ func (z *Zip) Unarchive(source, destination string) error {
 			}
 			return fmt.Errorf("reading file in zip archive: %v", err)
 		}
+
+		//println(file)
+
+		if !isDir {
+			output <- destination + "/" + file
+		}
 	}
 
 	return nil
 }
 
-func (z *Zip) extractNext(to string) error {
+func (z *Zip) extractNext(to string) (string, bool, error) {
 	f, err := z.Read()
 	if err != nil {
-		return err // don't wrap error; calling loop must break on io.EOF
+		return "", false, err // don't wrap error; calling loop must break on io.EOF
 	}
 	defer f.Close()
 	return z.extractFile(f, to)
 }
 
-func (z *Zip) extractFile(f File, to string) error {
+func (z *Zip) extractFile(f File, to string) (filename string, isDir bool, err error) {
 	header, ok := f.Header.(zip.FileHeader)
 	if !ok {
-		return fmt.Errorf("expected header to be zip.FileHeader but was %T", f.Header)
+		return "", false, fmt.Errorf("expected header to be zip.FileHeader but was %T", f.Header)
 	}
 
-	to = filepath.Join(to, header.Name)
+	filename = z.DecodeFileName(header)
+	to = filepath.Join(to, filename)
 
 	// if a directory, no content; simply make the directory and return
 	if f.IsDir() {
-		return mkdir(to, f.Mode())
+		return "", true, mkdir(to, f.Mode())
 	}
 
 	// do not overwrite existing files, if configured
 	if !z.OverwriteExisting && fileExists(to) {
-		return fmt.Errorf("file already exists: %s", to)
+		return filename, false, fmt.Errorf("file already exists: %s", to)
 	}
 
 	// extract symbolic links as symbolic links
@@ -209,12 +345,12 @@ func (z *Zip) extractFile(f File, to string) error {
 		buf := new(bytes.Buffer)
 		_, err := io.Copy(buf, f)
 		if err != nil {
-			return fmt.Errorf("%s: reading symlink target: %v", header.Name, err)
+			return filename, false, fmt.Errorf("%s: reading symlink target: %v", header.Name, err)
 		}
-		return writeNewSymbolicLink(to, strings.TrimSpace(buf.String()))
+		return filename, false, writeNewSymbolicLink(to, strings.TrimSpace(buf.String()))
 	}
 
-	return writeNewFile(to, f, f.Mode())
+	return filename, false, writeNewFile(to, f, f.Mode())
 }
 
 func (z *Zip) writeWalk(source, topLevelFolder, destination string) error {
@@ -444,6 +580,8 @@ func (z *Zip) Walk(archive string, walkFn WalkFunc) error {
 			return fmt.Errorf("opening %s: %v", zf.Name, err)
 		}
 
+		zf.FileHeader.Name = z.DecodeFileName(zf.FileHeader)
+
 		err = walkFn(File{
 			FileInfo:   zf.FileInfo(),
 			Header:     zf.FileHeader,
@@ -483,6 +621,8 @@ func (z *Zip) Extract(source, target, destination string) error {
 			return fmt.Errorf("expected header to be zip.FileHeader but was %T", f.Header)
 		}
 
+		zfh.Name = z.DecodeFileName(zfh)
+
 		// importantly, cleaning the path strips tailing slash,
 		// which must be appended to folders within the archive
 		name := path.Clean(zfh.Name)
@@ -501,7 +641,7 @@ func (z *Zip) Extract(source, target, destination string) error {
 			}
 			joined := filepath.Join(destination, end)
 
-			err = z.extractFile(f, joined)
+			_, _, err = z.extractFile(f, joined)
 			if err != nil {
 				return fmt.Errorf("extracting file %s: %v", zfh.Name, err)
 			}
@@ -537,6 +677,17 @@ func (*Zip) Match(file io.ReadSeeker) (bool, error) {
 		return false, nil
 	}
 	return bytes.Equal(buf, []byte("PK\x03\x04")), nil
+}
+
+func (z *Zip) DecodeFileName(header zip.FileHeader) string {
+	headerName := header.Name
+	if header.NonUTF8 && z.FilenameEncoding != "" {
+		if filename, err := Decode([]byte(headerName), z.FilenameEncoding); err == nil {
+			return string(filename)
+		}
+	}
+
+	return headerName
 }
 
 func (z *Zip) String() string { return "zip" }
@@ -603,3 +754,88 @@ var compressedFormats = map[string]struct{}{
 
 // DefaultZip is a default instance that is conveniently ready to use.
 var DefaultZip = NewZip()
+
+func (z *Zip) GetFileCount(source string) (int, error) {
+	count := 0
+
+	file, err := os.Open(source)
+	if err != nil {
+		return count, fmt.Errorf("opening source file: %v", err)
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return count, fmt.Errorf("statting source file: %v", err)
+	}
+
+	err = z.Open(file, fileInfo.Size())
+	if err != nil {
+		return count, fmt.Errorf("opening zip archive for reading: %v", err)
+	}
+	defer z.Close()
+
+	// if the files in the archive do not all share a common
+	// root, then make sure we extract to a single subfolder
+	// rather than potentially littering the destination...
+	if z.ImplicitTopLevelFolder {
+		files := make([]string, len(z.zr.File))
+		for i := range z.zr.File {
+			files[i] = z.zr.File[i].Name
+		}
+		fmt.Println(len(files))
+	}
+
+	if z.zr == nil {
+		return -1, fmt.Errorf("zip archive is not open")
+	}
+
+	len := len(z.zr.File)
+	for i := 0; i < len; i++ {
+		if !z.zr.File[i].FileInfo().IsDir() {
+			count++
+		}
+	}
+
+	return count, err
+}
+
+func (z *Zip) GetFileCountByReader(reader io.Reader, size int64) (int, error) {
+	err := z.Open(reader, size)
+	if err != nil {
+		return -1, fmt.Errorf("opening zip archive for reading: %v", err)
+	}
+	defer z.Close()
+
+	// if the files in the archive do not all share a common
+	// root, then make sure we extract to a single subfolder
+	// rather than potentially littering the destination...
+	if z.ImplicitTopLevelFolder {
+		files := make([]string, len(z.zr.File))
+		for i := range z.zr.File {
+			files[i] = z.zr.File[i].Name
+		}
+		fmt.Println(len(files))
+	}
+
+	if z.zr == nil {
+		return -1, fmt.Errorf("zip archive is not open")
+	}
+
+	count := 0
+
+	len := len(z.zr.File)
+	for i := 0; i < len; i++ {
+		if !z.zr.File[i].FileInfo().IsDir() {
+			count++
+		}
+	}
+
+	return count, err
+}
+
+
+func (z *Zip) calcNext() (bool, error) {
+
+	return false, nil
+}
